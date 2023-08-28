@@ -1,0 +1,35 @@
+-- Orders EDA
+-- 고객 별 주문횟수, 매출,수익 
+SELECT 
+    COUNT(OrderID) AS Order_cnt,
+    ROUND(SUM(Sales)) AS Order_Sales,
+    ROUND(SUM(Quantity),2) AS Quantity,
+    ROUND(SUM(DisCount),2) AS Order_discnt,
+    ROUND(SUM(Profit)) AS TotalProfit
+FROM Orders;
+
+-- 고객 세그먼트 별 주문 건수 및 비중 
+SELECT
+    CustomerSegment AS CS,
+    COUNT(OrderID) AS Order_cnt,
+    ROUND(COUNT(OrderID)*100 / SUM(COUNT(OrderID)) OVER(), 2) AS Order_cnt_ratio,
+    ROUND(SUM(Sales)) AS Sales,
+	ROUND(SUM(Quantity),2) AS Quantity,
+    ROUND(SUM(Discount),2) AS Discount,
+    ROUND(SUM(Profit)) AS Profit
+FROM Orders
+GROUP BY CustomerSegment
+ORDER BY CustomerSegment;
+
+-- 지역별 주문 건수 및 비중 , 매출, 수량 , 할인 , 수익
+SElECT 
+	AddressRegion,
+    COUNT(OrderID)AS Order_cnt,
+    ROUND(COUNT(OrderID)*100 / SUM(COUNT(OrderID)) OVER(), 2) AS Order_cnt_ratio,
+    ROUND(SUM(Sales)) AS Sales,
+    ROUND(SUM(Quantity),2) AS Quantity,
+    ROUND(SUM(Discount),2) AS Discount,
+    ROUND(SUM(Profit)) AS Profit
+FROM Orders
+GROUP BY AddressRegion
+ORDER BY AddressRegion;
