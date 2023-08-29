@@ -1,12 +1,23 @@
 -- Orders EDA
--- 고객 별 주문횟수, 매출,수익 
+-- 고객 별 주문횟수, 매출,주문수량,할인,이익
 SELECT 
+  CustomerID,
     COUNT(OrderID) AS Order_cnt,
     ROUND(SUM(Sales)) AS Order_Sales,
     ROUND(SUM(Quantity),2) AS Quantity,
     ROUND(SUM(DisCount),2) AS Order_discnt,
     ROUND(SUM(Profit)) AS TotalProfit
-FROM Orders;
+FROM Orders
+GROUP BY CustomerID
+ORDER BY Order_cnt DESC;
+
+SELECT
+	 CustomerID,
+    COUNT(OrderID) AS PurchaseFrequency
+FROM Orders
+GROUP BY CustomerID
+ORDER BY PurchaseFrequency DESC;
+
 
 -- 고객 세그먼트 별 주문 건수 및 비중 
 SELECT
@@ -21,7 +32,7 @@ FROM Orders
 GROUP BY CustomerSegment
 ORDER BY CustomerSegment;
 
--- 지역별 주문 건수 및 비중 , 매출, 수량 , 할인 , 수익
+-- 지역별 주문 건수 및 비중 , 매출, 수량 , 할인 , 이익
 SElECT 
 	AddressRegion,
     COUNT(OrderID)AS Order_cnt,
@@ -55,31 +66,29 @@ SELECT
  GROUP BY month
  ORDER BY month;
 
--- 제품 판매 매출 상위/하위 10
+-- 제품 판매 상위/하위 10
 -- 상위 10
 SELECT ProductCategory,ProductSubCategory,
 	COUNT(OrderID)AS Order_cnt,
     ROUND(COUNT(OrderID)*100 / SUM(COUNT(OrderID)) OVER(), 2) AS Order_cnt_ratio,
-    ROUND(SUM(Sales)) AS Sales,
+    ROUND(SUM(Sales*Discount)) AS Discount_Sales,
     ROUND(SUM(Quantity),2) AS Quantity,
     ROUND(SUM(Discount),2) AS Discount,
     ROUND(SUM(Profit)) AS Profit
 FROM Orders
 GROUP BY ProductCategory,ProductSubCategory
-ORDER BY Sales DESC
+ORDER BY order_cnt DESC
 limit 10;
 
 -- 하위 10
 SELECT ProductCategory,ProductSubCategory,
 	COUNT(OrderID)AS Order_cnt,
     ROUND(COUNT(OrderID)*100 / SUM(COUNT(OrderID)) OVER(), 2) AS Order_cnt_ratio,
-    ROUND(SUM(Sales)) AS Sales,
+    ROUND(SUM(Sales*Discount)) AS Discount_Sales,
     ROUND(SUM(Quantity),2) AS Quantity,
     ROUND(SUM(Discount),2) AS Discount,
     ROUND(SUM(Profit)) AS Profit
 FROM Orders
 GROUP BY ProductCategory,ProductSubCategory
-ORDER BY Sales 
+ORDER BY order_cnt 
 limit 10;
-
-
