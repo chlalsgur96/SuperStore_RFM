@@ -278,96 +278,83 @@ from rfm_vw
 ORDER BY total_score 
 LIMIT 10;
 
-# RFM 고객 등급 산정 -python
-
-# 데이터 불러오기
-# SQL에서 python
-from sqlalchemy import create_engine
-import pymysql
-
-db_user = 'root'
-db_password = 'user_password'
-db_host = 'localhost'
-db_port = '3306'
-db_name = 'superstore'
-db_charset = 'utf8mb4'
-
-# MySQL 연결 URL 생성
-db_url = f'mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset={db_charset}'
-
-engine = create_engine(db_url, echo=True)
-
-query = """
-   SELECT CustomerID, 
-		MAX(OrderTimestamp) AS R,
-		COUNT(DISTINCT OrderID) AS F,
-		ROUND(SUM(sales),2) AS M
-FROM Orders 
-WHERE OrderID NOT IN (SELECT OrderID FROM Returns)
-GROUP BY CustomerID
-ORDER BY CustomerID;
-        """
-
-# 쿼리 실행 결과를 DataFrame으로 읽기
-df = pd.read_sql_query(query, engine)
-rfm_df = df[['R','F','M']]
-
-# 결과 확인
-rfm_df.head()
-
-# last_date에서 각 고객별 R 일자를 빼서, 기준일까지 얼마나 지났는지를 나타냅니다
-rfm_df['R'] = pd.to_datetime(rfm_df['R'])
-last_date = rfm_df['R'].max() + pd.to_timedelta(1,'D')
-rfm_df['R'] = last_date - rfm_df['R']
-rfm_df['R'] = rfm_df['R'].dt.days
-
-display(rfm_df.info(), rfm_df.head(5))
-
-# 각 RFM score 
-rfm_df['R_rk'] = rfm_df['R'].rank(method='max', ascending=False) / len(rfm_df)
-rfm_df['F_rk'] = rfm_df['F'].rank(method='min', ascending=True) / len(rfm_df)
-rfm_df['M_rk'] = rfm_df['M'].rank(method='min', ascending=True) / len(rfm_df)
-
-# R_score, F_score, M_score 계산
-def assign_score(rk):
-    if rk < 0.25:
-        return 1
-    elif 0.25 <= rk < 0.5:
-        return 2
-    elif 0.5 <= rk < 0.75:
-        return 3
-    else:
-        return 4
-    
-rfm_df['R_score'] = rfm_df['R_rk'].apply(assign_score)
-rfm_df['F_score'] = rfm_df['F_rk'].apply(assign_score)
-rfm_df['M_score'] = rfm_df['M_rk'].apply(assign_score)
 
 
-rfm_df['RFM_Score'] = rfm_df['R_score']+  rfm_df['F_score'] + rfm_df['M_score'] 
+--  고객 등급 분류
+SELECT
+    R,
+    F,
+    M,
+	R_score,
+    F_score,
+    M_score,
+    (R_score + F_score + M_score) AS total_score,
+    CASE
+        WHEN  (R_score + F_score + M_score) >= 12 THEN 'VIP'
+        WHEN (R_score + F_score + M_score) >= 9 THEN '우수고객'
+        WHEN (R_score + F_score + M_score) >= 6 THEN '일반고객'
+        WHEN (R_score + F_score + M_score) > 3 THEN '신규고객'
+        ELSE '휴먼고객'
+    END AS grade
+ FROM rfm_vw
+ GROUP BY R,F,M,R_score, F_score, M_score
+ ORDER BY 1
+ LIMIT 10;
 
-# RFM score 지표별 고객 등급 분류
-# RFM 고객 등급 분류
-def assign_grade(score):
+
+--  고객 등급별 고객 수 , 비율
+SELECT
+    grade,
+    COUNT(*) AS customer_cnt,
+    COUNT(*) *100/ (SELECT COUNT(*) FROM rfm_vw) AS grade_ratio
+FROM (
+    SELECT
+        (R_score + F_score + M_score) AS total_score,
+        CASE
+            WHEN  (R_score + F_score + M_score) >= 12 THEN 'VIP'
+            WHEN (R_score + F_score + M_score) >= 9 THEN '우수고객'
+            WHEN (R_score + F_score + M_score) >= 6 THEN '일반고객'
+            WHEN (R_score + F_score + M_score) >3 THEN '신규고객'
+            ELSE '휴먼고객'
+        END AS grade
+     FROM rfm_grade
+) AS s
+GROUP BY grade
+ORDER BY 1;
+
+--  고객 등급 Anova 분석
+
+df = pd.read_sql_query(sql_query,engine)
+
+# 'total_score'컬럼 추가
+df['total_score'] = df['R_score'] + df['F_score'] + df['M_score']
+
+# RFM_score별 점수 구간대에 따라 bronze부터 diamond까지 class 분류
+def return_class(score):
     if score >= 12:
         return 'VIP'
     elif score >= 9:
         return '우수고객'
     elif score >= 6:
         return '일반고객'
-    elif score >= 3:
+    elif score > 3:
         return '신규고객'
     else:
         return '휴먼고객'
 
-# 등급 할당
-rfm_df['grade'] = rfm_df['RFM_Score'].apply(assign_grade)
+# 'return_class' 함수 적용    
+df['class'] = df['total_score'].apply(return_class)
 
-# 결과 출력
-print(rfm_df[['RFM_Score', 'grade']])
+# ANOVA 검정 시행
+from statsmodels.formula.api import ols
+from statsmodels.stats.anova import anova_lm
+import statsmodels.stats.multicomp as mc
 
+comp = mc.MultiComparison(data=df['total_score'], groups=df['class'])
+tukeyhsd = comp.tukeyhsd(alpha=0.05)
+tukeyhsd.summary()
 
-
+print(tukeyhsd)
 
 
 
