@@ -278,6 +278,97 @@ from rfm_vw
 ORDER BY total_score 
 LIMIT 10;
 
+# RFM 고객 등급 산정 -python
+
+# 데이터 불러오기
+# SQL에서 python
+from sqlalchemy import create_engine
+import pymysql
+
+db_user = 'root'
+db_password = 'user_password'
+db_host = 'localhost'
+db_port = '3306'
+db_name = 'superstore'
+db_charset = 'utf8mb4'
+
+# MySQL 연결 URL 생성
+db_url = f'mysql+pymysql://{db_user}:{db_password}@{db_host}:{db_port}/{db_name}?charset={db_charset}'
+
+engine = create_engine(db_url, echo=True)
+
+query = """
+   SELECT CustomerID, 
+		MAX(OrderTimestamp) AS R,
+		COUNT(DISTINCT OrderID) AS F,
+		ROUND(SUM(sales),2) AS M
+FROM Orders 
+WHERE OrderID NOT IN (SELECT OrderID FROM Returns)
+GROUP BY CustomerID
+ORDER BY CustomerID;
+        """
+
+# 쿼리 실행 결과를 DataFrame으로 읽기
+df = pd.read_sql_query(query, engine)
+rfm_df = df[['R','F','M']]
+
+# 결과 확인
+rfm_df.head()
+
+# last_date에서 각 고객별 R 일자를 빼서, 기준일까지 얼마나 지났는지를 나타냅니다
+rfm_df['R'] = pd.to_datetime(rfm_df['R'])
+last_date = rfm_df['R'].max() + pd.to_timedelta(1,'D')
+rfm_df['R'] = last_date - rfm_df['R']
+rfm_df['R'] = rfm_df['R'].dt.days
+
+display(rfm_df.info(), rfm_df.head(5))
+
+# 각 RFM score 
+rfm_df['R_rk'] = rfm_df['R'].rank(method='max', ascending=False) / len(rfm_df)
+rfm_df['F_rk'] = rfm_df['F'].rank(method='min', ascending=True) / len(rfm_df)
+rfm_df['M_rk'] = rfm_df['M'].rank(method='min', ascending=True) / len(rfm_df)
+
+# R_score, F_score, M_score 계산
+def assign_score(rk):
+    if rk < 0.25:
+        return 1
+    elif 0.25 <= rk < 0.5:
+        return 2
+    elif 0.5 <= rk < 0.75:
+        return 3
+    else:
+        return 4
+    
+rfm_df['R_score'] = rfm_df['R_rk'].apply(assign_score)
+rfm_df['F_score'] = rfm_df['F_rk'].apply(assign_score)
+rfm_df['M_score'] = rfm_df['M_rk'].apply(assign_score)
+
+
+rfm_df['RFM_Score'] = rfm_df['R_score']+  rfm_df['F_score'] + rfm_df['M_score'] 
+
+# RFM score 지표별 고객 등급 분류
+# RFM 고객 등급 분류
+def assign_grade(score):
+    if score >= 12:
+        return 'VIP'
+    elif score >= 9:
+        return '우수고객'
+    elif score >= 6:
+        return '일반고객'
+    elif score >= 3:
+        return '신규고객'
+    else:
+        return '휴먼고객'
+
+# 등급 할당
+rfm_df['grade'] = rfm_df['RFM_Score'].apply(assign_grade)
+
+# 결과 출력
+print(rfm_df[['RFM_Score', 'grade']])
+
+
+
+
 
 
     
