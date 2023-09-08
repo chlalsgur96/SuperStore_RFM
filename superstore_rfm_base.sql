@@ -116,37 +116,39 @@ SELECT
 FROM S;
 
 -- RFM 점수 산정을 위한 view 
-CREATE VIEW RFM_VW AS
-SELECT CustomerID, R, R_sub, F, M, R_rk, F_rk, M_rk,
-			CASE WHEN R_rk < 0.25 THEN 1
-					 WHEN R_rk between 0.25 AND 0.5 THEN 2
-					 WHEN R_rk between 0.5 AND 0.75 THEN 3
-					 ELSE 4 END AS R_score,
-			CASE WHEN F_rk < 0.25 THEN 1
-					 WHEN F_rk between 0.25 AND 0.5 THEN 2
-					 WHEN F_rk between 0.5 AND 0.75 THEN 3
-					 ELSE 4 END AS F_score,
-			CASE WHEN M_rk < 0.25 THEN 1
-					 WHEN M_rk between 0.25 AND 0.5 THEN 2
-					 WHEN M_rk between 0.5 AND 0.75 THEN 3
-					 ELSE 4 END AS M_score
+CREATE VIEW rfm_view
+AS
+(
+SELECT customer_id, R, R_sub, F, M, R_rk, F_rk, M_rk,
+       CASE WHEN R_rk < 0.25 THEN 1
+			WHEN R_rk between 0.25 AND 0.5 THEN 2
+            WHEN R_rk between 0.5 AND 0.75 THEN 3
+            ELSE 4 END AS R_score,
+	   CASE WHEN F_rk < 0.25 THEN 1
+            WHEN F_rk between 0.25 AND 0.5 THEN 2
+            WHEN F_rk between 0.5 AND 0.75 THEN 3
+            ELSE 4 END AS F_score,
+	   CASE WHEN M_rk < 0.25 THEN 1
+            WHEN M_rk between 0.25 AND 0.5 THEN 2
+            WHEN M_rk between 0.5 AND 0.75 THEN 3
+            ELSE 4 END AS M_score
 FROM
 (
-SELECT CustomerID,
-       R, R_sub, F, M,
-			 round(PERCENT_RANK() OVER(ORDER BY R desc), 2) AS R_rk,
-			 round(PERCENT_RANK() OVER(ORDER BY F), 2) AS F_rk,
-			 round(PERCENT_RANK() OVER(ORDER BY M), 2) AS M_rk
-FROM
+SELECT customer_id,
+	   R, R_sub, F, M,
+	   round(PERCENT_RANK() OVER(ORDER BY R desc), 2) AS R_rk,
+	   round(PERCENT_RANK() OVER(ORDER BY F), 2) AS F_rk,
+	   round(PERCENT_RANK() OVER(ORDER BY M), 2) AS M_rk
+FROM 
 (
-SELECT CustomerID,
-       DATEDIFF('2020-12-31', MAX(OrderTimestamp)) AS R,
-       MAX(OrderTimestamp) AS R_sub,
-       COUNT(DISTINCT OrderID) AS F,
-       ROUND(SUM(Sales), 2) AS M
+SELECT customer_id,
+	   DATEDIFF('2020-12-31', MAX(order_timestamp)) AS R,
+	   MAX(order_timestamp) AS R_sub,
+	   COUNT(DISTINCT orderid) AS F,
+	   ROUND(SUM(sales), 2) AS M   
 FROM orders
-WHERE Orderid NOT IN (SELECT Orderid FROM returns)
-GROUP BY CustomerID) t1) t2;
+WHERE orderid NOT IN (SELECT orderid FROM returns)
+GROUP BY customer_id) t1) t2);
 
 
 -- RFM 지표별 매출 기여효과 
