@@ -1,50 +1,39 @@
 -- Orders EDA
 -- 고객 별 주문횟수, 매출,주문수량,할인,이익
 SELECT 
-  CustomerID,
-    COUNT(OrderID) AS Order_cnt,
+    COUNT(order_id) AS Order_cnt,
     ROUND(SUM(Sales)) AS Order_Sales,
     ROUND(SUM(Quantity),2) AS Quantity,
     ROUND(SUM(DisCount),2) AS Order_discnt,
     ROUND(SUM(Profit)) AS TotalProfit
 FROM Orders
-GROUP BY CustomerID
+WHERE order_id NOT IN (SELECT order_id FROM superstore.returns)
 ORDER BY Order_cnt DESC;
-
-SELECT
-	 CustomerID,
-    COUNT(OrderID) AS PurchaseFrequency
-FROM Orders
-GROUP BY CustomerID
-ORDER BY PurchaseFrequency DESC;
 
 
 -- 고객 세그먼트 별 주문 건수 및 비중 
-SELECT
+SELECT 
     CustomerSegment AS CS,
-    COUNT(OrderID) AS Order_cnt,
-    ROUND(COUNT(OrderID)*100 / SUM(COUNT(OrderID)) OVER(), 2) AS Order_cnt_ratio,
-    ROUND(SUM(Sales)) AS Sales,
-	ROUND(SUM(Quantity),2) AS Quantity,
-    ROUND(SUM(Discount),2) AS Discount,
-    ROUND(SUM(Profit)) AS Profit
+    COUNT(DISTINCT order_id) AS Order_cnt,
+    ROUND(COUNT(order_id)*100 / SUM(COUNT( order_id)) OVER(), 2) AS Order_cnt_ratio
 FROM Orders
+WHERE order_id NOT IN (SELECT order_id FROM superstore.returns)
 GROUP BY CustomerSegment
 ORDER BY CustomerSegment;
 
 -- 지역별 주문 건수 및 비중 , 매출, 수량 , 할인 , 이익
 SElECT 
 	AddressRegion,
-    COUNT(OrderID)AS Order_cnt,
-    ROUND(COUNT(OrderID)*100 / SUM(COUNT(OrderID)) OVER(), 2) AS Order_cnt_ratio,
+    COUNT(order_id)AS Order_cnt,
+    ROUND(COUNT(order_id)*100 / SUM(COUNT(order_id)) OVER(), 2) AS Order_cnt_ratio,
     ROUND(SUM(Sales)) AS Sales,
     ROUND(SUM(Quantity),2) AS Quantity,
     ROUND(SUM(Discount),2) AS Discount,
     ROUND(SUM(Profit)) AS Profit
 FROM Orders
+WHERE order_id NOT IN (SELECT order_id FROM superstore.returns)
 GROUP BY AddressRegion
 ORDER BY AddressRegion;
-
 -- 연/월별 주문건수 및 전년도 주문량 비교
 SELECT
      month,
@@ -57,38 +46,42 @@ SELECT
      ROUND((SUM(CASE WHEN year = '2020' THEN order_count ELSE 0 END) / SUM(CASE WHEN year = '2019' THEN order_count ELSE 0 END)) * 100, 2) AS '2019_vs2020(%)'
  FROM (
      SELECT
-         DATE_FORMAT(OrderTimestamp, '%m') AS month,
-         YEAR(OrderTimestamp) AS year,
-         COUNT(OrderID) AS order_count
+         DATE_FORMAT(order_timestamp, '%m') AS month,
+         YEAR(order_timestamp) AS year,
+         COUNT(DISTINCT order_id) AS order_count
      FROM Orders
+     WHERE order_id NOT IN (SELECT order_id FROM superstore.returns)
      GROUP BY month, year
  ) AS s1
  GROUP BY month
  ORDER BY month;
 
+
 -- 제품 판매 상위/하위 10
 -- 상위 10
 SELECT ProductCategory,ProductSubCategory,
-	COUNT(OrderID)AS Order_cnt,
-    ROUND(COUNT(OrderID)*100 / SUM(COUNT(OrderID)) OVER(), 2) AS Order_cnt_ratio,
+	COUNT(order_id)AS Order_cnt,
+    ROUND(COUNT(order_id)*100 / SUM(COUNT(order_id)) OVER(), 2) AS Order_cnt_ratio,
     ROUND(SUM(Sales*Discount)) AS Discount_Sales,
     ROUND(SUM(Quantity),2) AS Quantity,
     ROUND(SUM(Discount),2) AS Discount,
     ROUND(SUM(Profit)) AS Profit
 FROM Orders
+WHERE order_id NOT IN (SELECT order_id FROM superstore.returns) 
 GROUP BY ProductCategory,ProductSubCategory
 ORDER BY order_cnt DESC
 limit 10;
 
 -- 하위 10
 SELECT ProductCategory,ProductSubCategory,
-	COUNT(OrderID)AS Order_cnt,
-    ROUND(COUNT(OrderID)*100 / SUM(COUNT(OrderID)) OVER(), 2) AS Order_cnt_ratio,
+	COUNT( order_id)AS Order_cnt,
+    ROUND(COUNT(order_id)*100 / SUM(COUNT(order_id)) OVER(), 2) AS Order_cnt_ratio,
     ROUND(SUM(Sales*Discount)) AS Discount_Sales,
     ROUND(SUM(Quantity),2) AS Quantity,
     ROUND(SUM(Discount),2) AS Discount,
     ROUND(SUM(Profit)) AS Profit
 FROM Orders
+WHERE order_id NOT IN (SELECT order_id FROM superstore.returns) 
 GROUP BY ProductCategory,ProductSubCategory
 ORDER BY order_cnt 
 limit 10;
